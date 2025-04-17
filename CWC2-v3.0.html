@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数学验证码</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: #f5f5f5;
+        }
+        
+        .captcha-box {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        #captchaContainer {
+            margin: 1rem 0;
+            padding: 1.5rem;
+            border-radius: 8px;
+            transition: background-color 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #captchaInput {
+            padding: 0.8rem;
+            width: 200px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 1.1rem;
+            text-align: center;
+            margin: 1rem 0;
+            transition: border-color 0.3s;
+        }
+        
+        #captchaInput:focus {
+            outline: none;
+            border-color: #4a90e2;
+        }
+        
+        button {
+            background-color: #4a90e2;
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #357ab8;
+        }
+        
+        #message {
+            margin-top: 1rem;
+            font-size: 1.1rem;
+            min-height: 1.5rem;
+        }
+        
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        
+        .noise-dot {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+    <div class="captcha-box">
+        <h1>人机验证</h1>
+        <p>请计算下方数学题的结果:</p>
+        
+        <div id="captchaContainer"></div>
+        
+        <input type="number" id="captchaInput" placeholder="请输入计算结果">
+        <button onclick="validate()">验证</button> <button onclick="generateCaptcha()">换一题</button>
+        <div id="message"></div>
+    </div>
+
+    <script>
+        let correctAnswer = 0;
+        let noiseDots = [];
+
+        // 生成随机数
+        function generateRandom(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        // 计算颜色亮度
+        function calculateBrightness(r, g, b) {
+            return (r * 299 + g * 587 + b * 114) / 1000;
+        }
+
+        // 生成对比色
+        function getContrastColor(bgR, bgG, bgB) {
+            const bgBrightness = calculateBrightness(bgR, bgG, bgB);
+            
+            // 根据背景亮度决定文字亮度
+            const targetBrightness = bgBrightness > 128 ? 
+                generateRandom(10, 40) :  // 背景亮时使用深色文字
+                generateRandom(160, 220); // 背景暗时使用亮色文字
+            
+            // 随机色相和饱和度
+            const hue = generateRandom(0, 360);
+            const saturation = generateRandom(60, 100);
+            
+            // 转换为HSL颜色
+            return `hsl(${hue}, ${saturation}%, ${targetBrightness}%)`;
+        }
+
+        // 生成波浪路径
+        function generateWavePath(width, height) {
+            const points = [];
+            const segments = generateRandom(3, 6);
+            const segmentWidth = width / segments;
+            
+            // 起点
+            points.push(`M ${generateRandom(-20, 20)} ${generateRandom(10, height - 10)}`);
+            
+            // 中间控制点
+            for(let i = 1; i <= segments; i++) {
+                const x = i * segmentWidth;
+                const y = generateRandom(10, height - 10);
+                const cpx = x - segmentWidth/2 + generateRandom(-30, 30);
+                const cpy = generateRandom(10, height - 10);
+                
+                points.push(`Q ${cpx},${cpy} ${x},${y}`);
+            }
+            
+            return points.join(' ');
+        }
+
+        // 添加噪点
+        function addNoiseDots(container, count, width, height) {
+            // 清除之前的噪点
+            noiseDots.forEach(dot => {
+                if(dot.parentNode) {
+                    dot.parentNode.removeChild(dot);
+                }
+            });
+            noiseDots = [];
+            
+            // 添加新噪点
+            for(let i = 0; i < count; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'noise-dot';
+                
+                const size = generateRandom(2, 6);
+                const left = generateRandom(0, width);
+                const top = generateRandom(0, height);
+                const opacity = generateRandom(20, 60) / 100;
+                
+                dot.style.width = `${size}px`;
+                dot.style.height = `${size}px`;
+                dot.style.left = `${left}px`;
+                dot.style.top = `${top}px`;
+                dot.style.backgroundColor = `rgba(${generateRandom(0,255)},${generateRandom(0,255)},${generateRandom(0,255)},${opacity})`;
+                
+                container.appendChild(dot);
+                noiseDots.push(dot);
+            }
+        }
+
+        // 生成验证码
+        function generateCaptcha() {
+            const container = document.getElementById('captchaContainer');
+            container.innerHTML = '';
+            
+            // 生成随机背景色
+            const bgR = generateRandom(50, 200);
+            const bgG = generateRandom(50, 200);
+            const bgB = generateRandom(50, 200);
+            container.style.backgroundColor = `rgb(${bgR},${bgG},${bgB})`;
+            
+            // 创建SVG元素
+            const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            svg.setAttribute("width", "300");
+            svg.setAttribute("height", "100");
+            svg.setAttribute("viewBox", "0 0 300 100");
+            
+            // 生成验证码题目
+            const nums = [generateRandom(1,9), generateRandom(1,9), generateRandom(1,9)];
+            const ops = [generateRandom(0,1) ? '+' : '-', generateRandom(0,1) ? '+' : '-'];
+            correctAnswer = eval(`${nums[0]}${ops[0]}${nums[1]}${ops[1]}${nums[2]}`);
+            
+            // 先添加数字和运算符
+            let x = 50;
+            [nums[0], ops[0], nums[1], ops[1], nums[2]].forEach((char, index) => {
+                const isNumber = index % 2 === 0;
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("x", x);
+                text.setAttribute("y", "60");
+                
+                if(isNumber) {
+                    // 数字添加旋转和随机颜色
+                    text.setAttribute("transform", `rotate(${generateRandom(-30,30)}, ${x}, 60)`);
+                    const textColor = getContrastColor(bgR, bgG, bgB);
+                    text.setAttribute("fill", textColor);
+                    x += 40;
+                } else {
+                    // 运算符保持水平
+                    text.setAttribute("fill", getContrastColor(bgR, bgG, bgB));
+                    x += 30;
+                }
+                
+                text.setAttribute("font-size", "40");
+                text.setAttribute("font-weight", generateRandom(400,700));
+                text.textContent = char;
+                svg.appendChild(text);
+            });
+
+            // 添加干扰线（覆盖在文字上方）
+            for(let i = 0; i < 8; i++) {
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                line.setAttribute("d", generateWavePath(300, 100));
+                line.setAttribute("stroke", `rgba(${generateRandom(0,255)},${generateRandom(0,255)},${generateRandom(0,255)},0.5)`);
+                line.setAttribute("stroke-width", generateRandom(2,4));
+                line.setAttribute("fill", "none");
+                svg.appendChild(line);
+            }
+
+            container.appendChild(svg);
+            
+            // 添加HTML噪点
+            addNoiseDots(container, 40, 300, 100);
+        }
+
+        // 验证输入
+        function validate() {
+            const userAnswer = parseInt(document.getElementById('captchaInput').value);
+            const message = document.getElementById('message');
+            
+            if(isNaN(userAnswer)) {
+                message.textContent = "请输入有效数字！";
+                message.className = "error";
+                return;
+            }
+            
+            if(userAnswer === correctAnswer) {
+                message.textContent = "验证通过！";
+                message.className = "success";
+                document.getElementById('captchaInput').value = '';
+                setTimeout(generateCaptcha, 1500);
+            } else {
+                message.textContent = "验证失败，请重试！";
+                message.className = "error";
+                document.getElementById('captchaInput').value = '';
+                document.getElementById('captchaInput').focus();
+                generateCaptcha();
+            }
+        }
+
+        // 初始化
+        window.onload = function() {
+            generateCaptcha();
+            document.getElementById('captchaInput').focus();
+            
+            // 回车键提交
+            document.getElementById('captchaInput').addEventListener('keypress', function(e) {
+                if(e.key === 'Enter') {
+                    validate();
+                }
+            });
+        };
+    </script>
+</body>
+</html>
